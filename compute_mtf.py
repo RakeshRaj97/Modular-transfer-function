@@ -70,8 +70,12 @@ class PDS_Compute_MTF(object):
         image_data = image_data[roi[0]:roi[1], roi[2]:roi[3]]
         self.data = image_data
         _, th = cv2.threshold(self.data, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        self.min = np.amin(self.data)
-        self.max = np.amax(self.data)
+        if (image_data.size == 96, 96):
+            self.min = 32
+            self.max = 96
+        else:
+            self.min = np.amin(self.data)
+            self.max = np.amax(self.data)
         self.threshold = th*(self.max - self.min) + self.min
         below_thresh = ((self.data >= self.min) & (self.data <= self.threshold))
         above_thresh = ((self.data >= self.threshold) & (self.data <= self.max))
@@ -225,7 +229,13 @@ class PDS_Compute_MTF(object):
         x_mtf_final = np.arange(0,1,1./127)
         mtf_final = mtf_final[1024:1151]/np.amax(mtf_final[1024:1151])
         mtf_final_smooth = mtf_final_smooth[1024:1151]/np.amax(mtf_final_smooth[1024:1151])
+        # compute MTF50 & MTF20 from filtered MTF
+        mtf50 = np.interp(0.5, mtf_final_smooth[::-1], x_mtf_final[::-1])
+        mtf20 = np.interp(0.2, mtf_final_smooth[::-1], x_mtf_final[::-1])
         plt.plot(x_mtf_final, mtf_final, 'y-', x_mtf_final, mtf_final_smooth)
+        plt.plot(mtf50, 0.5, 'gx')
+        plt.plot(mtf20, 0.2, 'rx')
+
         plt.xlabel("cycles/pixel")
         plt.ylabel("Modulation Factor")
         plt.title("MTF Curve")
@@ -234,10 +244,10 @@ class PDS_Compute_MTF(object):
         plt.legend(handles=[yellow_patch, blue_patch])
         plt.savefig('mtf_curve.png')
         plt.show()
-        return mtf
+        print('mtf50 is %.2f, mtf20 is %.2f'%(mtf50, mtf20))
 
 
-roi = ROI_selection('HR.png')
+roi = ROI_selection('10.png')
 area = [0, roi.image_data.shape[0], 0, roi.image_data.shape[1]]
-mtf = PDS_Compute_MTF('HR_rural_crop1.png', area)
+mtf = PDS_Compute_MTF('10.png', area)
 print(type(mtf))
